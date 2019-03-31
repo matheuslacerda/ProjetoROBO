@@ -1,0 +1,162 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="row">
+    <h3>Enviar ação para o R.O.B.O.</h3>
+    <p>
+        @{
+            var acaoListItems = new List<SelectListItem>
+            {
+                new SelectListItem { Text = "Contração do cotovelo do braço esquerdo", Value="0" },
+                new SelectListItem { Text = "Contração do cotovelo do braço direito", Value="1" },
+                new SelectListItem { Text = "Rotação do pulso do braço esquerdo", Value="2" },
+                new SelectListItem { Text = "Rotação do pulso do braço direito", Value="3" },
+                new SelectListItem { Text = "Rotação da cabeça", Value="4" },
+                new SelectListItem { Text = "Inclinação da cabeça", Value="5" }
+            };
+            @Html.DropDownList("AcaoList", new SelectList(acaoListItems, "Value", "Text"), "-- Ações --", new { id = "AcaoList", onchange = "ChangeDropDown()" });
+        }
+    </p>
+    <p>
+        @{
+            @Html.DropDownList("ParamList", Enumerable.Empty<SelectListItem>(), "-- Selecione uma ação --", new { id = "ParamList", visible = true });
+        }
+    </p>
+    <p>
+        <button onclick="Post()">Enviar</button>
+    </p>
+    <p>
+        <label id="labelPost"></label>
+    </p>
+</div>
+<div class="row">
+    <h3>Verificar status do R.O.B.O.</h3>
+    <p>
+        <button onclick="Get()">Verificar</button>
+    </p>
+    <p>
+        <textarea readonly id="ROBO" rows="6" cols="80"></textarea>
+    </p>
+</div>
+<div>
+    <a href="/swagger">Documentação da API</a>
+</div>
+
+@section Scripts
+{
+    <script type="text/javascript">
+        var contracaoCotovelo = ["Em repouso", "Levemente contraído", "Contraído", "Fortemente contraído"];
+        var rotacaoPulso = ["Rotação para -90º", "Rotação para -45º", "Em repouso", "Rotação para 45º", "Rotação para 90º", "Rotação para 135º", "Rotação para 180º"];
+        var rotacaoCabeca = ["Rotação -90º", "Rotação -45º", "Em repouso", "Rotação 45º", "Rotação 90º"];
+        var inclinacaoCabeca = ["Para cima", "Em repouso", "Para baixo"];
+
+        function ChangeDropDown() {
+            var e = document.getElementById("ParamList");
+            while (e.options.length > 0) {
+                e.remove(e.options.length - 1);
+            }
+            var option = document.createElement("option");
+            option.textContent = "-- Selecione uma ação --";
+            option.value = "";
+            e.appendChild(option);
+            
+            switch (document.getElementById("AcaoList").options[document.getElementById("AcaoList").selectedIndex].value) {
+                case "0":
+                    fillDropDown(e, contracaoCotovelo);
+                    break;
+                case "1":
+                    fillDropDown(e, contracaoCotovelo);
+                    break;
+                case "2":
+                    fillDropDown(e, rotacaoPulso);
+                    break;
+                case "3":
+                    fillDropDown(e, rotacaoPulso);
+                    break;
+                case "4":
+                    fillDropDown(e, rotacaoCabeca);
+                    break;
+                case "5":
+                    fillDropDown(e, inclinacaoCabeca);
+                    break;
+            }
+        };
+
+        function fillDropDown(e, options) {
+            for (var i = 0; i < options.length; i++) {
+                var text = options[i];
+                var option = document.createElement("option");
+                option.textContent = text;
+                option.value = i.toString();
+                e.appendChild(option);
+            }
+        };
+
+        function Post() {
+            document.getElementById("labelPost").textContent = "";
+
+            var acao = document.getElementById("AcaoList").options[document.getElementById("AcaoList").selectedIndex].value;
+            if (!acao) {
+                document.getElementById("labelPost").textContent = "É necessário selecionar uma ação!";
+                return;
+            }
+
+            var param = document.getElementById("ParamList").options[document.getElementById("ParamList").selectedIndex].value;
+            if (!param) {
+                document.getElementById("labelPost").textContent = "É necessário selecionar um parâmetro para a ação!";
+                return;
+            }
+
+            var settings = {
+                "async": true,
+                "crossDomain": true,
+                "url": "api/ROBO",
+                "method": "POST",
+                "headers": {
+                    "Content-Type": "application/json",
+                    "cache-control": "no-cache"
+                },
+                "processData": false,
+                "data": "{\n\t\"acao\": " + acao + ",\n\t\"parametroDaAcao\": " + param + "\n}"
+            }
+
+            var request = $.ajax(settings);
+            request.done(function() {
+                document.getElementById("labelPost").textContent = "Ação enviada com sucesso.";
+                Get();
+            });
+            request.fail(function(msg) {
+                document.getElementById("labelPost").textContent = "Erro na requisição!";
+                document.getElementById("labelPost").textContent = msg.responseText;
+                document.getElementById("labelPost").textContent = JSON.parse(msg.responseText).message;
+            });
+        };
+
+        function Get() {
+            document.getElementById("ROBO").textContent = "";
+
+            var settings = {
+                "async": true,
+                "crossDomain": true,
+                "url": "api/ROBO",
+                "method": "GET",
+                "headers": {
+                    "cache-control": "no-cache"
+                }
+            }
+
+            $.ajax(settings).done(function (response) {
+                document.getElementById("ROBO").textContent = response;
+                var obj = JSON.parse(response);
+                document.getElementById("ROBO").textContent =
+                    "Cotovelo esquerdo: " + contracaoCotovelo[obj.BracoEsquerdo.ContracaoCotovelo] + "\n" +
+                    "Cotovelo direito: " + contracaoCotovelo[obj.BracoDireito.ContracaoCotovelo] + "\n" +
+                    "Pulso esquerdo: " + rotacaoPulso[obj.BracoEsquerdo.RotacaoPulso] + "\n" +
+                    "Pulso direito: " + rotacaoPulso[obj.BracoDireito.RotacaoPulso] + "\n" +
+                    "Rotação da cabeça: " + rotacaoCabeca[obj.Cabeca.Rotacao] + "\n" +
+                    "Inclinação da cabeça: " + inclinacaoCabeca[obj.Cabeca.Inclinacao];
+            });
+        };
+    </script>
+}
